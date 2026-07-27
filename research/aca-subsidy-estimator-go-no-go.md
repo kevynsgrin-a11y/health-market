@@ -230,6 +230,12 @@ Also note the state layer: most states have adopted the NAIC **Advertisements of
 
 Unit-test fixtures. **FPL basis for PY2027 = 2026 HHS poverty guidelines** (per 26 CFR 1.36B-1(h)). All figures 48 contiguous states + DC. **Re-verify #1–#3 against primary PDFs before coding** — see the method limitation at the top.
 
+> **Correction (applied after implementation).** Two statutory rounding rules, verified after this memo was first written, change the arithmetic in fact #9 and are now encoded in the engine and its tests:
+> 1. **26 CFR 1.36B-3(g)** requires the applicable percentage to be *"rounded to the nearest one-hundredth of one percent."* The original unrounded figure (8.6796% → $289.32/mo) was wrong; the correct value is 8.69% → **$289.67/mo**.
+> 2. **Form 8962 line 5** takes household income as a percent of FPL as a *whole number*, and the >400% test is performed on the raw comparison `income > 4 × FPL` **before** any rounding. See new fact #9a.
+>
+> Facts #7, #8, #10 and #11 were computed correctly the first time and are unchanged.
+
 | # | Fact / worked example | Value | Source |
 |---|---|---|---|
 | 1 | 2026 FPL, 1-person household (PY2027 basis) | **$15,960** | [FR 2026-00755, pub. Jan 15, 2026, eff. Jan 13, 2026](https://www.federalregister.gov/documents/2026/01/15/2026-00755/annual-update-of-the-hhs-poverty-guidelines) |
@@ -240,7 +246,8 @@ Unit-test fixtures. **FPL basis for PY2027 = 2026 HHS poverty guidelines** (per 
 | 6 | 2027 employer-coverage affordability threshold | **10.22%** (2026: 9.96%) | ibid.; [Rev. Proc. 2025-25](https://www.irs.gov/pub/irs-drop/rp-25-25.pdf) |
 | 7 | **Cliff test — single filer.** 400% FPL = 4 × $15,960 | **$63,840.** At $63,840: applicable % = 10.22% → required contribution **$6,524.45/yr = $543.70/mo**. At **$63,841: PTC = $0**, full benchmark premium owed | Computed from #1, #5 |
 | 8 | **Cliff test — family of 4.** 400% FPL = 4 × $33,000 | **$132,000.** At $132,001: **PTC = $0** | Computed from #2, #5 |
-| 9 | **Interpolation test.** Single, income $40,000 → 250.63% FPL, band 250–300% | applicable % = 8.66 + 1.56 × (0.6266/50) = **8.6796%** → **$3,471.83/yr = $289.32/mo**. With SLCSP $700/mo → **PTC = $410.68/mo** | 26 CFR 1.36B-3(g) + Rev. Proc. 2026-26 |
+| 9 | **Interpolation test.** Single, income $40,000 → 250.63% FPL → Form 8962 line 5 = **251** | applicable % = 8.66 + 1.56 × (1/50) = 8.6912 → rounded to **8.69%** → **$3,476.00/yr = $289.67/mo**. With SLCSP $700/mo → **PTC = $410.33/mo** | [26 CFR 1.36B-3(g)](https://www.law.cornell.edu/cfr/text/26/1.36B-3); [Form 8962 instructions](https://www.irs.gov/instructions/i8962); Rev. Proc. 2026-26 |
+| 9a | **No rounding escape hatch at the cliff.** Single at $63,903.84 = 400.4% FPL | Naive `round(400.4) = 400` wrongly grants a credit. Correct: the `income > 4 × FPL` test runs **before** rounding, so line 5 = **401** and **PTC = $0** | [Form 8962 instructions, line 5](https://www.irs.gov/instructions/i8962) |
 | 10 | **Band-boundary continuity test.** Single at exactly $23,940 (150.00% FPL) | Enters 150–200% band at initial **4.30%** → **$1,029.42/yr = $85.79/mo**. Must be continuous with the 133–150% band's final 4.30% | ibid. |
 | 11 | **Low-income test.** Single, income $20,000 → 125.3% FPL (<133%) | 2.15% → **$430.00/yr = $35.83/mo** required contribution | ibid. |
 | 12 | 2027 max annual limitation on cost sharing | **$12,000** self-only / **$24,000** other (2026: $10,600 / $21,200; +13.2%) | [Milliman](https://www.milliman.com/en/insight/2027-aca-oop-max-limits-released-group-health); [CMS PAPI guidance, Jan 29, 2026](https://www.cms.gov/files/document/2027-papi-parameters-guidance-2026-01-29.pdf) |

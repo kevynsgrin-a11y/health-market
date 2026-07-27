@@ -1,0 +1,25 @@
+{
+  "name": "health-market",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "ACA 400% FPL cliff planner — subsidy engine and data spine",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "etl": "tsx src/etl/run.ts",
+    "etl:verify": "tsx src/etl/verify.ts",
+    "dev": "tsx src/dev-server.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  }
+}

@@ -1,0 +1,207 @@
+/**
+ * ETL orchestration: fetch CMS public use files, derive benchmarks, write shards.
+ *
+ *   npm run etl -- --plan-year=2026 --out=public/data
+ *   npm run etl -- --plan-year=2026 --from-dir=./downloads   (offline)
+ *
+ * Must be run from an environment with outbound HTTPS to healthdata.gov,
+ * data.healthcare.gov and download.cms.gov. Shards are committed to the repo
+ * and served as static assets, so production never talks to CMS at request time.
+ *
+ * PLAN YEAR AVAILABILITY: PY2027 files publish around October 2026. Running
+ * this for 2027 before then is expected to fail at the fetch step.
+ */
+
+import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { join } from "node:path";
+
+import { validateShard } from "../data/shard.js";
+import {
+  buildPlanRates,
+  buildShards,
+  indexPlanAttributes,
+  resolveRatingArea,
+  type CountyInput,
+  type CsvRow,
+} from "./build.js";
+import { parseCsvTable, parseMoneyToCents } from "./csv.js";
+import { DATASETS, fetchText, NetworkBlockedError, type DatasetKey } from "./sources.js";
+import type { NormalisedPlanRate } from "./slcsp.js";
+
+interface Args {
+  planYear: number;
+  outDir: string;
+  fromDir: string | null;
+}
+
+function parseArgs(argv: readonly string[]): Args {
+  const get = (name: string): string | undefined =>
+    argv.find((a) => a.startsWith(`--${name}=`))?.split("=").slice(1).join("=");
+
+  const planYear = Number(get("plan-year") ?? new Date().getUTCFullYear());
+  if (!Number.isInteger(planYear)) {
+    throw new Error(`--plan-year must be an integer; got ${get("plan-year")}`);
+  }
+  return {
+    planYear,
+    outDir: get("out") ?? "public/data",
+    fromDir: get("from-dir") ?? null,
+  };
+}
+
+async function load(name: DatasetKey, args: Args): Promise<string> {
+  const dataset = DATASETS[name];
+  if (args.fromDir) {
+    const path = join(args.fromDir, `${dataset.id}.csv`);
+    console.log(`  reading ${path}`);
+    return readFile(path, "utf8");
+  }
+  const url = dataset.downloadUrl;
+  console.log(`  fetching ${url}`);
+  return fetchText(url);
+}
+
+async function main(): Promise<void> {
+  const args = parseArgs(process.argv.slice(2));
+  console.log(`ETL for plan year ${args.planYear} -> ${args.outDir}\n`);
+
+  console.log("1/5 Loading source files");
+  const [attributesCsv, ratesCsv, landscapeCsv, zipCsv] = await Promise.all([
+    load("planAttributesPuf", args),
+    load("ratePuf", args),
+    load("qhpLandscapeIndividualMedical", args),
+    load("slcspCountyZip", args),
+  ]);
+
+  console.log("2/5 Parsing");
+  const attributes = indexPlanAttributes(
+    parseCsvTable(attributesCsv, ["StandardComponentId", "MetalLevel", "MarketCoverage"]).rows,
+  );
+  const rates = buildPlanRates(
+    parseCsvTable(ratesCsv, ["PlanId", "RatingAreaId", "Age", "IndividualRate"]).rows,
+    attributes,
+    args.planYear,
+  );
+  const landscape = parseCsvTable(landscapeCsv, ["FIPS County Code", "Plan ID"]).rows;
+  const zipRows = parseCsvTable(zipCsv, []).rows;
+  console.log(
+    `  ${attributes.size} plans, ${rates.size} plan/rating-area rate tables, ` +
+      `${landscape.length} landscape rows`,
+  );
+
+  console.log("3/5 Joining counties to rating areas");
+  const ratesByPlan = new Map<string, NormalisedPlanRate[]>();
+  for (const rate of rates.values()) {
+    const bucket = ratesByPlan.get(rate.planId) ?? [];
+    bucket.push(rate);
+    ratesByPlan.set(rate.planId, bucket);
+  }
+
+  const countyPlans = new Map<string, { meta: CsvRow; plans: NormalisedPlanRate[] }>();
+  let unresolved = 0;
+
+  for (const row of landscape) {
+    const fips = (row["FIPS County Code"] ?? "").trim().padStart(5, "0");
+    const planId = (row["Plan ID"] ?? "").trim();
+    if (!fips || !planId) continue;
+
+    const candidates = ratesByPlan.get(planId);
+    if (!candidates || candidates.length === 0) continue;
+
+    const age40 = parseMoneyToCents(
+      row["Premium Adult Individual Age 40"] ?? row["Premium Adult Individual Age 40 "] ?? "",
+    );
+    let chosen: NormalisedPlanRate | undefined;
+    if (candidates.length === 1) {
+      chosen = candidates[0];
+    } else if (age40 !== null) {
+      const areaId = resolveRatingArea(age40, candidates);
+      chosen = candidates.find((c) => c.ratingAreaId === areaId);
+    }
+    if (!chosen) {
+      unresolved += 1;
+      continue;
+    }
+
+    const entry = countyPlans.get(fips) ?? { meta: row, plans: [] };
+    entry.plans.push(chosen);
+    countyPlans.set(fips, entry);
+  }
+  console.log(`  ${countyPlans.size} counties, ${unresolved} unresolved plan/county rows`);
+
+  const counties: CountyInput[] = [...countyPlans].map(([countyFips, { meta, plans }]) => ({
+    countyFips,
+    countyName: (meta["County Name"] ?? "").trim() || "Unknown",
+    stateCode: (meta["State Code"] ?? "").trim(),
+    ratingAreaId: plans[0]?.ratingAreaId ?? "Unknown",
+    plans,
+  }));
+
+  const zipToCounties: Record<string, string[]> = {};
+  for (const row of zipRows) {
+    const zip = (row["zipcode"] ?? row["ZIP Code"] ?? row["zip"] ?? "").trim().padStart(5, "0");
+    const fips = (row["countycode"] ?? row["FIPS"] ?? row["county"] ?? "").trim().padStart(5, "0");
+    if (!/^\d{5}$/.test(zip) || !/^\d{5}$/.test(fips)) continue;
+    (zipToCounties[zip] ??= []).push(fips);
+  }
+  console.log(`  ${Object.keys(zipToCounties).length} ZIP codes in the crosswalk`);
+
+  console.log("4/5 Deriving benchmarks");
+  const outcome = buildShards(counties, {
+    planYear: args.planYear,
+    sourceFile: `${DATASETS.ratePuf.id} + ${DATASETS.qhpLandscapeIndividualMedical.id}`,
+    sourcePublished: new Date().toISOString().slice(0, 10),
+    generated: new Date().toISOString(),
+    zipToCounties,
+  });
+  console.log(`  built ${outcome.countiesBuilt}, skipped ${outcome.countiesSkipped}`);
+  for (const warning of outcome.warnings.slice(0, 25)) console.log(`  ! ${warning}`);
+  if (outcome.warnings.length > 25) {
+    console.log(`  ! ...and ${outcome.warnings.length - 25} more warnings`);
+  }
+
+  console.log("5/5 Validating and writing");
+  const dir = join(args.outDir, String(args.planYear));
+  await mkdir(dir, { recursive: true });
+
+  let failures = 0;
+  for (const [prefix, shard] of outcome.shards) {
+    const problems = validateShard(shard);
+    if (problems.length > 0) {
+      failures += 1;
+      console.error(`  FAILED ${prefix}: ${problems.slice(0, 3).join("; ")}`);
+      continue;
+    }
+    await writeFile(join(dir, `${prefix}.json`), JSON.stringify(shard));
+  }
+
+  await writeFile(
+    join(dir, "index.json"),
+    JSON.stringify({
+      planYear: args.planYear,
+      generated: new Date().toISOString(),
+      shardCount: outcome.shards.size,
+      countiesBuilt: outcome.countiesBuilt,
+      countiesSkipped: outcome.countiesSkipped,
+      warnings: outcome.warnings,
+      prefixes: [...outcome.shards.keys()].sort(),
+    }, null, 2),
+  );
+
+  if (failures > 0) {
+    console.error(`\n${failures} shard(s) failed validation and were NOT written.`);
+    process.exitCode = 1;
+    return;
+  }
+  console.log(`\nWrote ${outcome.shards.size} shards to ${dir}`);
+}
+
+main().catch((error: unknown) => {
+  if (error instanceof NetworkBlockedError) {
+    console.error(`\n${error.message}\n`);
+    process.exitCode = 2;
+    return;
+  }
+  console.error(error);
+  process.exitCode = 1;
+});

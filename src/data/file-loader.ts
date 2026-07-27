@@ -1,0 +1,85 @@
+/**
+ * Shard loaders for the two deployment targets.
+ *
+ * Cloudflare Pages serves shards as static assets fetched over the local
+ * network binding; Node reads them from disk. Both cache parsed shards in
+ * memory, and both refuse to serve a shard that fails integrity validation.
+ */
+
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
+
+import type { PlanYear } from "../core/types.js";
+import { type BenchmarkShard, type ShardLoader, validateShard } from "./shard.js";
+
+function assertValid(shard: BenchmarkShard, key: string): BenchmarkShard {
+  const problems = validateShard(shard);
+  if (problems.length > 0) {
+    throw new Error(
+      `Shard ${key} failed integrity validation and will not be served:\n  ` +
+        problems.slice(0, 5).join("\n  "),
+    );
+  }
+  return shard;
+}
+
+/** Reads shards from the filesystem. Used by the dev server and by Node hosts. */
+export class FileShardLoader implements ShardLoader {
+  private readonly cache = new Map<string, BenchmarkShard | null>();
+
+  constructor(private readonly baseDir: string) {}
+
+  async load(planYear: PlanYear, zip3: string): Promise<BenchmarkShard | null> {
+    const key = `${planYear}/${zip3}`;
+    const cached = this.cache.get(key);
+    if (cached !== undefined) return cached;
+
+    try {
+      const raw = await readFile(join(this.baseDir, String(planYear), `${zip3}.json`), "utf8");
+      const shard = assertValid(JSON.parse(raw) as BenchmarkShard, key);
+      this.cache.set(key, shard);
+      return shard;
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+        this.cache.set(key, null);
+        return null;
+      }
+      throw error;
+    }
+  }
+}
+
+/**
+ * Reads shards from a Cloudflare Pages static-asset binding.
+ *
+ * `fetcher` is the `env.ASSETS` binding. Shards are immutable per deployment,
+ * so the in-memory cache lives for the isolate's lifetime.
+ */
+export class AssetShardLoader implements ShardLoader {
+  private readonly cache = new Map<string, BenchmarkShard | null>();
+
+  constructor(
+    private readonly fetcher: { fetch(request: Request): Promise<Response> },
+    private readonly basePath = "/data",
+  ) {}
+
+  async load(planYear: PlanYear, zip3: string): Promise<BenchmarkShard | null> {
+    const key = `${planYear}/${zip3}`;
+    const cached = this.cache.get(key);
+    if (cached !== undefined) return cached;
+
+    const response = await this.fetcher.fetch(
+      new Request(`https://assets.local${this.basePath}/${planYear}/${zip3}.json`),
+    );
+    if (response.status === 404) {
+      this.cache.set(key, null);
+      return null;
+    }
+    if (!response.ok) {
+      throw new Error(`Shard ${key} fetch failed: HTTP ${response.status}`);
+    }
+    const shard = assertValid((await response.json()) as BenchmarkShard, key);
+    this.cache.set(key, shard);
+    return shard;
+  }
+}
