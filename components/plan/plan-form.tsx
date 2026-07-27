@@ -13,7 +13,7 @@ import {
   type ValidationProblem,
 } from "@/lib/estimate"
 
-const PLAN_YEARS = [2026, 2027] as const
+const PLAN_YEARS = [2026] as const
 
 interface FormState {
   zip: string
