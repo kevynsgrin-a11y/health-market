@@ -17,8 +17,8 @@
  * @see https://www.ecfr.gov/current/title-26/chapter-I/subchapter-A/part-1/section-1.36B-1 (paragraph (h))
  */
 
-import { requireVerifiedRegion } from "./plan-years.js";
-import type { Cents, FplRegion, FplResult, PlanYearParameters } from "./types.js";
+import { requireVerifiedRegion } from "./plan-years";
+import type { Cents, FplRegion, FplResult, PlanYearParameters } from "./types";
 
 /** Sentinel used by Form 8962 line 5 for "above 400% of the poverty line". */
 export const ABOVE_400_SENTINEL = 401;

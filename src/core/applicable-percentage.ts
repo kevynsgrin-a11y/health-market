@@ -19,7 +19,7 @@ import type {
   ApplicablePercentageBracket,
   ApplicablePercentageTable,
   CentiPercent,
-} from "./types.js";
+} from "./types";
 
 export class BracketNotFoundError extends Error {
   constructor(readonly fplPercent: number, readonly planYear: number) {

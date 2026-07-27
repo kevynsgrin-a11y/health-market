@@ -15,7 +15,7 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
-import { validateShard } from "../data/shard.js";
+import { validateShard } from "../data/shard";
 import {
   buildPlanRates,
   buildShards,
@@ -23,10 +23,10 @@ import {
   resolveRatingArea,
   type CountyInput,
   type CsvRow,
-} from "./build.js";
-import { parseCsvTable, parseMoneyToCents } from "./csv.js";
-import { DATASETS, fetchText, NetworkBlockedError, type DatasetKey } from "./sources.js";
-import type { NormalisedPlanRate } from "./slcsp.js";
+} from "./build";
+import { parseCsvTable, parseMoneyToCents } from "./csv";
+import { DATASETS, fetchText, NetworkBlockedError, type DatasetKey } from "./sources";
+import type { NormalisedPlanRate } from "./slcsp";
 
 interface Args {
   planYear: number;

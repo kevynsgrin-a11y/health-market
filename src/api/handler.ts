@@ -14,19 +14,19 @@
  * client-side, so the API is an optimisation, not a requirement.
  */
 
-import { assessAffordability } from "../core/affordability.js";
-import { type BenchmarkProvider, isQuote } from "../core/benchmark.js";
-import { analyzeCliff, buildPtcCurve } from "../core/cliff.js";
-import { determineCsr } from "../core/csr.js";
+import { assessAffordability } from "../core/affordability";
+import { type BenchmarkProvider, isQuote } from "../core/benchmark";
+import { analyzeCliff, buildPtcCurve } from "../core/cliff";
+import { determineCsr } from "../core/csr";
 import {
   getPlanYear,
   SUPPORTED_PLAN_YEARS,
   UnsupportedPlanYearError,
   UnverifiedDataError,
-} from "../core/plan-years.js";
-import { computePtc } from "../core/ptc.js";
-import { regionForState } from "../data/shard.js";
-import type { Cents, Household, HouseholdMember, PlanYear } from "../core/types.js";
+} from "../core/plan-years";
+import { computePtc } from "../core/ptc";
+import { regionForState } from "../data/shard";
+import type { Cents, Household, HouseholdMember, PlanYear } from "../core/types";
 
 export interface EstimateRequest {
   readonly planYear: PlanYear;

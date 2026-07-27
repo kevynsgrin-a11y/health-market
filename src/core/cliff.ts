@@ -26,15 +26,15 @@
  * cannot be done without the household's actual local benchmark premium.
  */
 
-import { cliffIncomeFor, incomeAtFplPercent } from "./fpl.js";
-import { centsToUsd, requiredContributionAt } from "./ptc.js";
+import { cliffIncomeFor, incomeAtFplPercent } from "./fpl";
+import { centsToUsd, requiredContributionAt } from "./ptc";
 import type {
   Cents,
   CliffAnalysis,
   Household,
   PlanYearParameters,
   WorkingStep,
-} from "./types.js";
+} from "./types";
 
 /**
  * Premium tax credit at a hypothetical income, holding the benchmark premium

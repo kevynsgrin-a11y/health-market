@@ -23,10 +23,10 @@ import {
   type BenchmarkProvider,
   type BenchmarkRequest,
   type BenchmarkResult,
-} from "../core/benchmark.js";
-import { selectRatedMembers } from "../core/rating.js";
-import type { Cents, FplRegion, PlanYear } from "../core/types.js";
-import { lookupMarketplace, usesFederalData } from "./exchanges.js";
+} from "../core/benchmark";
+import { selectRatedMembers } from "../core/rating";
+import type { Cents, FplRegion, PlanYear } from "../core/types";
+import { lookupMarketplace, usesFederalData } from "./exchanges";
 
 /** A benchmark plan's rates by age, ages 14 (0-14 bucket) through 64 (64+). */
 export type AgeRateTable = Readonly<Record<string, Cents>>;

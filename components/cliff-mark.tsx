@@ -41,6 +41,38 @@ export function CliffMark({
 }
 
 /**
+ * A large, elegant cliff profile for the hero: a long plateau, a sheer drop,
+ * and a shallow runout, with a faint fill under the plateau. Decorative.
+ */
+export function CliffProfile({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 400 220"
+      fill="none"
+      preserveAspectRatio="xMidYMax meet"
+      className={cn("text-border", className)}
+      aria-hidden="true"
+    >
+      <defs>
+        <linearGradient id="cliffProfileFill" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="currentColor" stopOpacity="0.14" />
+          <stop offset="100%" stopColor="currentColor" stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      <path d="M0 70 H210 L210 176 H400 V220 H0 Z" fill="url(#cliffProfileFill)" />
+      <path
+        d="M0 70 H210 L210 176 H400"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <circle cx="196" cy="70" r="3.5" className="text-foreground" fill="currentColor" />
+    </svg>
+  )
+}
+
+/**
  * A full-bleed thin section divider drawn as a repeated cliff silhouette.
  * Purely decorative.
  */

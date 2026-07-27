@@ -9,7 +9,7 @@
  * @see https://www.healthreformbeyondthebasics.org/cost-sharing-charges-in-marketplace-health-insurance-plans-part-2/
  */
 
-import type { CsrResult } from "./types.js";
+import type { CsrResult } from "./types";
 
 /**
  * Determine the CSR silver variant from the Form 8962 whole-number FPL percent.

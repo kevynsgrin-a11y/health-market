@@ -16,7 +16,7 @@
  * @see https://www.ecfr.gov/current/title-45/subtitle-A/subchapter-B/part-147
  */
 
-import type { HouseholdMember } from "./types.js";
+import type { HouseholdMember } from "./types";
 
 /** Children below this age are subject to the three-oldest-children cap. */
 export const CHILD_RATING_AGE_CEILING = 21;

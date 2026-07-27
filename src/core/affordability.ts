@@ -14,8 +14,8 @@
  * change at work rather than a change in income.
  */
 
-import { applyRate } from "./applicable-percentage.js";
-import type { AffordabilityResult, Cents, PlanYearParameters } from "./types.js";
+import { applyRate } from "./applicable-percentage";
+import type { AffordabilityResult, Cents, PlanYearParameters } from "./types";
 
 export interface AffordabilityInput {
   /** Household income (MAGI) for the coverage year. */

@@ -25,7 +25,7 @@ import type {
   PlanYear,
   PlanYearParameters,
   PovertyGuidelines,
-} from "./types.js";
+} from "./types";
 
 const CHECKED = "2026-07-27";
 
