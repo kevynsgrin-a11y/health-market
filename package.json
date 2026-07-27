@@ -1,9 +1,9 @@
 {
-  "name": "health-market",
+  "name": "subsidy-dropoff",
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "ACA 400% FPL cliff planner — subsidy engine and data spine",
+  "description": "Subsidy Dropoff - find the income at which your ACA premium tax credit disappears",
   "engines": {
     "node": ">=22"
   },
@@ -13,7 +13,6 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "etl": "tsx src/etl/run.ts",
-    "etl:verify": "tsx src/etl/verify.ts",
     "dev": "tsx src/dev-server.ts"
   },
   "devDependencies": {
@@ -21,5 +20,6 @@
     "tsx": "^4.19.2",
     "typescript": "^5.7.2",
     "vitest": "^2.1.8"
-  }
+  },
+  "homepage": "https://subsidydropoff.com"
 }

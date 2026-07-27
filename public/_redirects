@@ -1,0 +1,7 @@
+# Canonical host. Cloudflare serves both apex and www once the custom domain is
+# attached; this collapses them so search engines see one origin.
+https://www.subsidydropoff.com/* https://subsidydropoff.com/:splat 301!
+
+# Friendly aliases for the tool.
+/calculator /plan 301
+/cliff /plan 301
