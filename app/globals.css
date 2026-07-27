@@ -25,6 +25,10 @@
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
 
+  /* Constant near-black surface for footers / final CTA, independent of theme. */
+  --color-ink: var(--ink);
+  --color-ink-foreground: var(--ink-foreground);
+
   /* Signal palette — cliff mechanic only. */
   --color-safe: var(--safe);
   --color-safe-foreground: var(--safe-foreground);
@@ -56,6 +60,9 @@
   --accent: #0e7c7b;
   --accent-foreground: #ffffff;
 
+  --ink: #0b0d0f;
+  --ink-foreground: #f2f0ec;
+
   --safe: #334155;
   --safe-foreground: #ffffff;
   --approaching: #b45309;
@@ -80,6 +87,9 @@
 
   --accent: #2bb9b6;
   --accent-foreground: #06100f;
+
+  --ink: #06080a;
+  --ink-foreground: #f2f0ec;
 
   --safe: #94a3b8;
   --safe-foreground: #0b0d0f;

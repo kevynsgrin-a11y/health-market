@@ -41,6 +41,14 @@ export const metadata: Metadata = {
     description:
       "Since the enhanced premium tax credits lapsed on December 31, 2025, one dollar over 400% of the federal poverty line can cost a household its entire subsidy. Cliff finds that exact dollar.",
     type: "website",
+    images: [{ url: "/og.png", width: 1200, height: 630, alt: "Cliff — find the dollar that ends your ACA subsidy" }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Cliff — Find the dollar that ends your ACA subsidy",
+    description:
+      "A precise estimate of the income at which your ACA premium tax credit disappears at 400% of the federal poverty line.",
+    images: ["/og.png"],
   },
   robots: { index: true, follow: true },
 }
