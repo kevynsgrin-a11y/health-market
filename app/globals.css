@@ -1,0 +1,151 @@
+@import "tailwindcss";
+
+/*
+  Cliff — design tokens.
+  Light theme is the editorial default; dark is first-class for the app view.
+  Signal colours (safe / approaching / over) are reserved EXCLUSIVELY for the
+  cliff mechanic and are never used as generic UI colour.
+*/
+
+@theme inline {
+  --font-sans: var(--font-inter-tight), ui-sans-serif, system-ui, sans-serif;
+  --font-serif: var(--font-instrument-serif), Newsreader, Georgia, serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+
+  /* Signal palette — cliff mechanic only. */
+  --color-safe: var(--safe);
+  --color-safe-foreground: var(--safe-foreground);
+  --color-approaching: var(--approaching);
+  --color-approaching-foreground: var(--approaching-foreground);
+  --color-over: var(--over);
+  --color-over-foreground: var(--over-foreground);
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+
+  --ease-cliff: cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+:root {
+  /* Editorial / light. */
+  --background: #faf9f7;
+  --foreground: #0b0d0f;
+  --card: #ffffff;
+  --card-foreground: #0b0d0f;
+  --muted: #f0eeea;
+  --muted-foreground: #55534d;
+  --border: #e4e1db;
+  --input: #e4e1db;
+  --ring: #0e7c7b;
+
+  --accent: #0e7c7b;
+  --accent-foreground: #ffffff;
+
+  --safe: #334155;
+  --safe-foreground: #ffffff;
+  --approaching: #b45309;
+  --approaching-foreground: #ffffff;
+  --over: #9a3412;
+  --over-foreground: #ffffff;
+
+  --radius: 0.5rem;
+}
+
+.dark {
+  /* App / dark. */
+  --background: #0b0d0f;
+  --foreground: #f2f0ec;
+  --card: #131619;
+  --card-foreground: #f2f0ec;
+  --muted: #1b1f23;
+  --muted-foreground: #9a9791;
+  --border: #262b30;
+  --input: #262b30;
+  --ring: #2bb9b6;
+
+  --accent: #2bb9b6;
+  --accent-foreground: #06100f;
+
+  --safe: #94a3b8;
+  --safe-foreground: #0b0d0f;
+  --approaching: #d97706;
+  --approaching-foreground: #0b0d0f;
+  --over: #c2532b;
+  --over-foreground: #0b0d0f;
+}
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-feature-settings: "cv01", "cv03", "ss01";
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* Every numeral in the product is tabular-lining. This is the fastest
+     tell of an amateur financial tool; do not remove. */
+  .tabular,
+  [data-tabular] {
+    font-variant-numeric: tabular-nums lining-nums;
+    font-feature-settings: "tnum", "lnum";
+  }
+
+  h1, h2, h3, h4 {
+    letter-spacing: -0.02em;
+    text-wrap: balance;
+  }
+
+  ::selection {
+    background-color: var(--color-accent);
+    color: var(--color-accent-foreground);
+  }
+
+  /* Focus ring matched to the design rather than the browser default. */
+  :focus-visible {
+    outline: 2px solid var(--color-ring);
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+}
+
+/* Thin topographic-contour texture, used at low opacity as a background. */
+.topo-texture {
+  background-image: repeating-radial-gradient(
+    circle at 30% 50%,
+    transparent 0,
+    transparent 22px,
+    var(--color-foreground) 22px,
+    var(--color-foreground) 23px
+  );
+  opacity: 0.03;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
