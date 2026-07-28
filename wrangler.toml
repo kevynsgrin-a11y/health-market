@@ -1,0 +1,19 @@
+# Cloudflare Pages configuration for subsidydropoff.com
+#
+# Deploy:
+#   npx wrangler pages deploy public --project-name=subsidy-dropoff
+#
+# Or let CI do it — see .github/workflows/deploy.yml, which deploys on every
+# push to the release branch once CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID
+# are set as repository secrets.
+#
+# The custom domain (subsidydropoff.com + www) is attached to the Pages project
+# via the dashboard or API, not from this file. See DEPLOY.md.
+
+name = "subsidy-dropoff"
+compatibility_date = "2026-07-27"
+compatibility_flags = ["nodejs_compat"]
+
+# Static assets. Pages Functions are picked up automatically from ./functions,
+# which sits alongside this directory rather than inside it.
+pages_build_output_dir = "public"

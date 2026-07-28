@@ -1,0 +1,112 @@
+# Deploying subsidydropoff.com
+
+## Status
+
+The deploy pipeline is complete and committed. It has **not** been executed, because
+the environment it was authored in has no Cloudflare credentials and its egress policy
+denies `api.cloudflare.com` outright (`connect_rejected: gateway answered 403 to
+CONNECT`). Two secrets are the only thing standing between the current state and a
+live site.
+
+## One-time setup
+
+### 1. Create the Cloudflare API token
+
+Cloudflare dashboard → **My Profile → API Tokens → Create Token → Custom token**.
+
+| Setting | Value |
+|---|---|
+| Permissions | `Account` → `Cloudflare Pages` → **Edit** |
+| Account Resources | Include → your account |
+
+Copy the token. It is shown once.
+
+### 2. Add repository secrets
+
+GitHub repo → **Settings → Secrets and variables → Actions → New repository secret**:
+
+| Name | Value |
+|---|---|
+| `CLOUDFLARE_API_TOKEN` | the token from step 1 |
+| `CLOUDFLARE_ACCOUNT_ID` | Cloudflare dashboard → Workers & Pages → right sidebar |
+
+### 3. Trigger the first deploy
+
+Push to a release branch, or run the workflow manually:
+
+```
+GitHub → Actions → "Deploy to Cloudflare Pages" → Run workflow
+```
+
+The workflow creates the Pages project (`subsidy-dropoff`) on first run. It will
+typecheck, run the 117 tests, pull the CMS public use files, derive benchmark shards,
+refuse to proceed if synthetic fixture data is present, and deploy.
+
+### 4. Attach the domain
+
+Cloudflare dashboard → **Workers & Pages → subsidy-dropoff → Custom domains →
+Set up a custom domain**. Add both:
+
+- `subsidydropoff.com`
+- `www.subsidydropoff.com`
+
+DNS is created automatically because the zone is already in the same Cloudflare
+account. `public/_redirects` collapses `www` onto the apex with a 301, so search
+engines see one canonical origin.
+
+## Why the ETL runs in CI rather than being committed
+
+GitHub runners have the outbound access to CMS that the authoring environment lacked.
+Running the ETL in the pipeline means:
+
+- Premium data is rebuilt from the published files on every deploy, so it cannot
+  silently drift from source.
+- The weekly `schedule` trigger picks up CMS's in-year revisions without anyone
+  remembering to do it.
+- **When CMS publishes plan year 2027 (expect around October 2026), the entire refresh
+  procedure is: run the workflow with `planYear: 2027`.** Nothing else changes.
+
+If the ETL fails — CMS outage, a plan year that isn't published yet — the deploy still
+proceeds and the API returns a typed `dataset-not-loaded` or `plan-year-not-published`.
+That is deliberate. The site degrades to an honest "we don't have this yet" rather than
+inventing a premium.
+
+## Manual deploy
+
+```bash
+npx wrangler login
+npm ci && npm test
+npm run etl -- --plan-year=2026 --out=public/data
+npx wrangler pages deploy public --project-name=subsidy-dropoff
+```
+
+## Verifying a deploy
+
+```bash
+curl -s https://subsidydropoff.com/api/health
+
+curl -s "https://subsidydropoff.com/api/estimate?planYear=2026&zip=77002&householdSize=2&income=80000&ages=60,58"
+```
+
+`/api/health` should return `{"ok":true,...}`. The estimate should return
+`"ok": true` with a real `benchmark.monthlySlcsp`. If it returns
+`"reason": "dataset-not-loaded"`, the ETL step did not produce shards — check that
+job's log.
+
+Then confirm the security headers landed:
+
+```bash
+curl -sI https://subsidydropoff.com | grep -iE 'content-security-policy|strict-transport'
+```
+
+## Before you call it launched
+
+- [ ] Re-verify the Rev. Proc. 2026-26 bracket values against the primary IRS PDF
+      (currently `secondary-concordant` — see the verification table in `README.md`)
+- [ ] Populate the Alaska and Hawaii poverty guidelines; the engine refuses those
+      regions until you do
+- [ ] Spot-check ten PUF-derived benchmarks against HealthCare.gov window shopping,
+      target ±$2/month
+- [ ] Confirm the disclaimer renders above the fold on mobile
+- [ ] Re-check the plan year 2027 open-enrollment end date — vacated 2026-06-12 in
+      *City of Columbus v. Kennedy*, currently on appeal to the Fourth Circuit

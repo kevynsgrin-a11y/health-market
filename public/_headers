@@ -1,0 +1,17 @@
+/*
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: DENY
+  Referrer-Policy: no-referrer
+  Permissions-Policy: geolocation=(), microphone=(), camera=(), interest-cohort=()
+  Strict-Transport-Security: max-age=63072000; includeSubDomains; preload
+  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: https:; connect-src 'self'; font-src 'self' data:; base-uri 'none'; form-action 'none'; frame-ancestors 'none'; object-src 'none'
+
+# Benchmark shards are immutable per deployment — the ETL writes a new set each
+# time and the deployment hash changes with them.
+/data/*
+  Cache-Control: public, max-age=31536000, immutable
+
+# Estimates are computed per request and must never be cached by an
+# intermediary: a cached result would show one household another's numbers.
+/api/*
+  Cache-Control: no-store

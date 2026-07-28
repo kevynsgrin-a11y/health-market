@@ -1,0 +1,95 @@
+name: Deploy to Cloudflare Pages
+
+# Autonomous deploy. Once CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID exist as
+# repository secrets, every push to a release branch runs the full pipeline
+# without human involvement: verify, pull fresh CMS data, deploy.
+#
+# The ETL runs HERE rather than being committed, because GitHub runners have the
+# outbound network access to CMS that the authoring environment did not. This is
+# also what keeps premiums current: re-running the workflow after CMS publishes a
+# plan year is the entire data refresh procedure.
+
+on:
+  push:
+    branches:
+      - main
+      - "claude/aca-marketplace-subsidy-estimator-**"
+  workflow_dispatch:
+    inputs:
+      planYear:
+        description: "Plan year to build benchmark data for"
+        required: false
+        default: "2026"
+  schedule:
+    # Weekly refresh. CMS revises public use files in-year, and this keeps the
+    # deployed premiums from silently drifting away from the published files.
+    - cron: "0 11 * * 1"
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Verify
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Test
+        run: npm test
+
+  deploy:
+    name: Build data and deploy
+    needs: verify
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+
+      - name: Build benchmark data from CMS public use files
+        id: etl
+        continue-on-error: true
+        run: npm run etl -- --plan-year=${{ github.event.inputs.planYear || '2026' }} --out=public/data
+
+      - name: Report data status
+        run: |
+          if [ -d public/data ] && [ -n "$(find public/data -name '*.json' -print -quit)" ]; then
+            COUNT=$(find public/data -name '*.json' ! -name 'index.json' | wc -l)
+            echo "::notice::Built $COUNT benchmark shards from CMS."
+            echo "### Benchmark data: $COUNT shards built" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "::warning::ETL produced no shards. Deploying anyway — the API will \
+            return an honest 'dataset-not-loaded' rather than an invented premium. \
+            Check whether CMS has published this plan year yet."
+            echo "### Benchmark data: NONE — API will report data unavailable" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Guard against shipping synthetic premiums
+        run: |
+          if grep -rl "SYNTHETIC" public/data 2>/dev/null; then
+            echo "::error::Synthetic fixture data found in the deploy artifact. Refusing to deploy."
+            exit 1
+          fi
+          echo "No synthetic data in the artifact."
+
+      - name: Deploy to Cloudflare Pages
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy public --project-name=subsidy-dropoff --branch=${{ github.ref_name }}

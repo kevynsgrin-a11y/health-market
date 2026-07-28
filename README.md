@@ -1,4 +1,6 @@
-# health-market — ACA 400% FPL Cliff Planner
+# Subsidy Dropoff — ACA 400% FPL Cliff Planner
+
+**subsidydropoff.com** · deploy runbook: [`DEPLOY.md`](DEPLOY.md)
 
 A subsidy engine and data spine for the ACA individual marketplace, built around the
 question no existing tool answers: **at exactly what income does your premium tax
@@ -32,7 +34,7 @@ that statute has displaced.
 npm install
 npm test          # 117 tests
 npm run typecheck
-npm run dev -- --synthetic
+npm run dev -- --synthetic   # serves public/ + the API on :8788
 ```
 
 ```bash
@@ -134,8 +136,12 @@ npm run etl -- --plan-year=2026 --from-dir=./downloads   # offline
 ```
 
 Requires outbound HTTPS to `healthdata.gov`, `data.healthcare.gov`, `download.cms.gov`.
-Shards are committed and served as static assets, so production never talks to CMS at
-request time.
+
+Shards are **not** committed — `.github/workflows/deploy.yml` rebuilds them from the
+published files on every deploy and ships them as static assets, so production never
+talks to CMS at request time and the data cannot silently drift from source. When CMS
+publishes plan year 2027 (expect ~October 2026), the entire refresh procedure is
+re-running that workflow with `planYear: 2027`.
 
 > **The dataset in this repo is the synthetic fixture.** Every premium in
 > `src/fixtures/` is invented. `sourceFile` is the sentinel string

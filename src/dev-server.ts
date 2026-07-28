@@ -9,7 +9,9 @@
  * mistake fixture output for real premiums.
  */
 
+import { readFile } from "node:fs/promises";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
+import { extname, join, normalize } from "node:path";
 
 import { handleRequest } from "./api/handler";
 import type { BenchmarkProvider } from "./core/benchmark";
@@ -41,10 +43,52 @@ async function toWhatwgRequest(req: IncomingMessage): Promise<Request> {
   return new Request(url, { method, body: Buffer.concat(chunks) });
 }
 
+const MIME: Record<string, string> = {
+  ".html": "text/html; charset=utf-8",
+  ".css": "text/css; charset=utf-8",
+  ".js": "text/javascript; charset=utf-8",
+  ".json": "application/json; charset=utf-8",
+  ".svg": "image/svg+xml",
+};
+
+/**
+ * Serve ./public, approximating what Cloudflare Pages does for static assets.
+ * Paths are normalised and confined to the public directory so a `..` in the
+ * request cannot escape it.
+ */
+async function serveStatic(pathname: string): Promise<Response | null> {
+  const rel = normalize(decodeURIComponent(pathname)).replace(/^(\.\.[/\\])+/, "");
+  const candidate = rel === "/" || rel === "\\" ? "index.html" : rel.replace(/^[/\\]+/, "");
+  const full = join("public", candidate);
+  if (!normalize(full).startsWith("public")) return null;
+
+  try {
+    const body = await readFile(full);
+    return new Response(body, {
+      status: 200,
+      headers: { "content-type": MIME[extname(full)] ?? "application/octet-stream" },
+    });
+  } catch {
+    return null;
+  }
+}
+
 const server = createServer((req: IncomingMessage, res: ServerResponse) => {
   void (async () => {
     try {
-      const response = await handleRequest(await toWhatwgRequest(req), provider);
+      const request = await toWhatwgRequest(req);
+      const { pathname } = new URL(request.url);
+
+      if (!pathname.startsWith("/api/")) {
+        const asset = (await serveStatic(pathname)) ?? (await serveStatic("/index.html"));
+        if (asset) {
+          res.writeHead(asset.status, Object.fromEntries(asset.headers));
+          res.end(Buffer.from(await asset.arrayBuffer()));
+          return;
+        }
+      }
+
+      const response = await handleRequest(request, provider);
       res.writeHead(response.status, Object.fromEntries(response.headers));
       res.end(Buffer.from(await response.arrayBuffer()));
     } catch (error) {
