@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 /*
-  Cliff — design tokens.
+  Subsidy Dropoff — design tokens.
   Light theme is the editorial default; dark is first-class for the app view.
   Signal colours (safe / approaching / over) are reserved EXCLUSIVELY for the
   cliff mechanic and are never used as generic UI colour.

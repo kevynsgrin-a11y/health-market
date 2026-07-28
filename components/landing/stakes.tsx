@@ -1,17 +1,24 @@
+import Image from "next/image"
 import { Eyebrow } from "@/components/ui/figure"
 
 const AUDIENCE = [
   {
     title: "The self-employed",
     body: "A good invoice in December can push your year over the line. The subsidy is reconciled on your tax return — so the surprise arrives in April, not at the pharmacy.",
+    photo: "/photos/persona-freelance.png",
+    alt: "A self-employed person reviewing an invoice at a sunlit desk beside a laptop.",
   },
   {
     title: "Early retirees",
     body: "Living on brokerage withdrawals before Medicare at 65? A single Roth conversion or capital gain can cost more in lost credits than the conversion itself.",
+    photo: "/photos/persona-retiree.png",
+    alt: "A couple in their early sixties walking a coastal bluff path at golden hour.",
   },
   {
     title: "Anyone near 400%",
     body: "The subsidy formula caps your premium at a share of income — right up until it doesn't. At the edge, one dollar of income can erase thousands of dollars of help.",
+    photo: "/photos/persona-owner.png",
+    alt: "A small-business owner shaping clay on a pottery wheel in a warm workshop.",
   },
 ]
 
@@ -46,9 +53,20 @@ export function Stakes() {
 
           <div className="flex flex-col gap-px overflow-hidden rounded-lg border border-border bg-border">
             {AUDIENCE.map((a) => (
-              <div key={a.title} className="bg-card p-6 md:p-8">
-                <h3 className="font-serif text-xl">{a.title}</h3>
-                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{a.body}</p>
+              <div key={a.title} className="flex items-stretch gap-4 bg-card p-4 sm:gap-5 sm:p-5">
+                <div className="relative aspect-square w-24 shrink-0 overflow-hidden rounded-md bg-muted sm:w-32">
+                  <Image
+                    src={a.photo || "/placeholder.svg"}
+                    alt={a.alt}
+                    fill
+                    sizes="128px"
+                    className="object-cover"
+                  />
+                </div>
+                <div className="flex flex-col justify-center py-1">
+                  <h3 className="font-serif text-xl">{a.title}</h3>
+                  <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">{a.body}</p>
+                </div>
               </div>
             ))}
           </div>

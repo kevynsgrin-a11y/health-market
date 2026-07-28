@@ -22,10 +22,10 @@ const geistMono = Geist_Mono({
 })
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://cliff.example"),
+  metadataBase: new URL("https://subsidydropoff.com"),
   title: {
-    default: "Cliff — Find the dollar that ends your ACA subsidy",
-    template: "%s — Cliff",
+    default: "Subsidy Dropoff — Find the dollar that ends your ACA subsidy",
+    template: "%s — Subsidy Dropoff",
   },
   description:
     "A precision tool that finds the exact income at which your ACA premium tax credit disappears at 400% of the federal poverty line — and what crossing that line costs you. Estimates only. Not affiliated with the U.S. government.",
@@ -37,15 +37,17 @@ export const metadata: Metadata = {
     "early retirement health insurance",
   ],
   openGraph: {
-    title: "Cliff — Find the dollar that ends your ACA subsidy",
+    title: "Subsidy Dropoff — Find the dollar that ends your ACA subsidy",
     description:
-      "Since the enhanced premium tax credits lapsed on December 31, 2025, one dollar over 400% of the federal poverty line can cost a household its entire subsidy. Cliff finds that exact dollar.",
+      "Since the enhanced premium tax credits lapsed on December 31, 2025, one dollar over 400% of the federal poverty line can cost a household its entire subsidy. Subsidy Dropoff finds that exact dollar.",
     type: "website",
-    images: [{ url: "/og.png", width: 1200, height: 630, alt: "Cliff — find the dollar that ends your ACA subsidy" }],
+    url: "https://subsidydropoff.com",
+    siteName: "Subsidy Dropoff",
+    images: [{ url: "/og.png", width: 1200, height: 630, alt: "Subsidy Dropoff — find the dollar that ends your ACA subsidy" }],
   },
   twitter: {
     card: "summary_large_image",
-    title: "Cliff — Find the dollar that ends your ACA subsidy",
+    title: "Subsidy Dropoff — Find the dollar that ends your ACA subsidy",
     description:
       "A precise estimate of the income at which your ACA premium tax credit disappears at 400% of the federal poverty line.",
     images: ["/og.png"],

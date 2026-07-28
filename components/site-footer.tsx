@@ -8,8 +8,8 @@ export function SiteFooter() {
         <div className="flex flex-col gap-8 md:flex-row md:items-start md:justify-between">
           <div className="max-w-sm">
             <div className="flex items-center gap-2.5">
-              <CliffMark className="h-5 w-8 text-foreground" />
-              <span className="font-serif text-lg">Cliff</span>
+              <CliffMark className="h-5 w-8 shrink-0 text-foreground" />
+              <span className="font-serif text-lg">Subsidy Dropoff</span>
             </div>
             <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
               A precise estimate of the income at which your ACA premium subsidy ends, and what
@@ -53,7 +53,7 @@ export function SiteFooter() {
             reflect published federal data for the selected plan year.
           </p>
           <p className="mt-4 text-xs text-muted-foreground">
-            © {new Date().getFullYear()} Cliff. Federal poverty guidelines: U.S. Department of Health
+            © {new Date().getFullYear()} Subsidy Dropoff. Federal poverty guidelines: U.S. Department of Health
             &amp; Human Services. Applicable-percentage table: Internal Revenue Service.
           </p>
         </div>

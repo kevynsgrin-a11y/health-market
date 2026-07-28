@@ -1,5 +1,6 @@
 import type { Metadata } from "next"
 import Link from "next/link"
+import Image from "next/image"
 import { SiteHeader } from "@/components/site-header"
 import { SiteFooter } from "@/components/site-footer"
 import { Eyebrow } from "@/components/ui/figure"
@@ -8,7 +9,7 @@ import { buttonVariants } from "@/components/ui/button"
 export const metadata: Metadata = {
   title: "Methodology & sources",
   description:
-    "How Cliff computes the ACA premium tax credit and the 400% subsidy cliff: the statute, the applicable-percentage table, the poverty guidelines, and every source with its publication date.",
+    "How Subsidy Dropoff computes the ACA premium tax credit and the 400% subsidy cliff: the statute, the applicable-percentage table, the poverty guidelines, and every source with its publication date.",
 }
 
 const SECTIONS = [
@@ -36,6 +37,21 @@ export default function MethodologyPage() {
               underlying data is verified and where it is not.
             </p>
           </div>
+
+          <figure className="mb-12 md:mb-16">
+            <div className="relative aspect-[21/9] w-full overflow-hidden rounded-xl border border-border bg-muted">
+              <Image
+                src="/photos/methodology-terrain.png"
+                alt="Aerial view of eroded ridgelines cut into warm rock, resembling the parallel lines of a topographic contour map."
+                fill
+                sizes="(max-width: 1152px) 100vw, 1104px"
+                className="object-cover object-center"
+              />
+            </div>
+            <figcaption className="mt-3 font-mono text-xs uppercase tracking-wider text-muted-foreground">
+              Every contour here has a source. So does every figure on this site.
+            </figcaption>
+          </figure>
 
           <div className="grid gap-12 lg:grid-cols-[220px_1fr] lg:gap-16">
             <nav aria-label="On this page" className="hidden lg:block">
@@ -120,7 +136,7 @@ export default function MethodologyPage() {
                   you were receiving at the edge: the whole thing, gone at once.
                 </p>
                 <p>
-                  Cliff finds that income precisely for your household, reports the credit lost at
+                  Subsidy Dropoff finds that income precisely for your household, reports the credit lost at
                   the edge, and measures your headroom — how much more income you can take on before
                   you reach it. Capital gains, Roth conversions, and year-end bonuses all count
                   against that headroom.
@@ -132,11 +148,11 @@ export default function MethodologyPage() {
                   Benchmark premiums come from the CMS public use files for federally-facilitated
                   Marketplace states. Where a state runs its own exchange — California, New York,
                   and others — those premiums are not in the federal files, and those states often
-                  add their own assistance on top of the federal credit. Rather than guess, Cliff
-                  tells you so and sends you to your state Marketplace.
+                  add their own assistance on top of the federal credit. Rather than guess, Subsidy
+                  Dropoff tells you so and sends you to your state Marketplace.
                 </p>
                 <p>
-                  When a ZIP spans more than one county, rating areas can differ, so Cliff asks which
+                  When a ZIP spans more than one county, rating areas can differ, so Subsidy Dropoff asks which
                   county rather than picking one. When a plan year&apos;s data has not been published,
                   or a region&apos;s poverty guidelines are not independently verified, the engine
                   returns an error instead of a confident but wrong number.
