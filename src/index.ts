@@ -8,18 +8,18 @@
  * user's device.
  */
 
-export * from "./core/types.js";
-export * from "./core/plan-years.js";
-export * from "./core/fpl.js";
-export * from "./core/applicable-percentage.js";
-export * from "./core/ptc.js";
-export * from "./core/cliff.js";
-export * from "./core/affordability.js";
-export * from "./core/csr.js";
-export * from "./core/rating.js";
-export * from "./core/benchmark.js";
+export * from "./core/types";
+export * from "./core/plan-years";
+export * from "./core/fpl";
+export * from "./core/applicable-percentage";
+export * from "./core/ptc";
+export * from "./core/cliff";
+export * from "./core/affordability";
+export * from "./core/csr";
+export * from "./core/rating";
+export * from "./core/benchmark";
 
-export * from "./data/exchanges.js";
+export * from "./data/exchanges";
 export {
   type AgeRateTable,
   type BenchmarkShard,
@@ -30,7 +30,7 @@ export {
   ShardIntegrityError,
   StaticBenchmarkProvider,
   validateShard,
-} from "./data/shard.js";
+} from "./data/shard";
 
 export {
   DISCLAIMER,
@@ -40,4 +40,4 @@ export {
   validate,
   type EstimateRequest,
   type EstimateResponse,
-} from "./api/handler.js";
+} from "./api/handler";

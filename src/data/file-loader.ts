@@ -9,8 +9,8 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 
-import type { PlanYear } from "../core/types.js";
-import { type BenchmarkShard, type ShardLoader, validateShard } from "./shard.js";
+import type { PlanYear } from "../core/types";
+import { type BenchmarkShard, type ShardLoader, validateShard } from "./shard";
 
 function assertValid(shard: BenchmarkShard, key: string): BenchmarkShard {
   const problems = validateShard(shard);

@@ -13,11 +13,11 @@ import { readFile } from "node:fs/promises";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { extname, join, normalize } from "node:path";
 
-import { handleRequest } from "./api/handler.js";
-import type { BenchmarkProvider } from "./core/benchmark.js";
-import { FileShardLoader } from "./data/file-loader.js";
-import { MemoryShardLoader, StaticBenchmarkProvider } from "./data/shard.js";
-import { syntheticShard } from "./fixtures/synthetic-shard.js";
+import { handleRequest } from "./api/handler";
+import type { BenchmarkProvider } from "./core/benchmark";
+import { FileShardLoader } from "./data/file-loader";
+import { MemoryShardLoader, StaticBenchmarkProvider } from "./data/shard";
+import { syntheticShard } from "./fixtures/synthetic-shard";
 
 const PORT = Number(process.env["PORT"] ?? 8788);
 const useSynthetic = process.argv.includes("--synthetic");

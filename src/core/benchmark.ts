@@ -18,7 +18,7 @@
  * caps repealed the cost of a wrong number now falls entirely on the user.
  */
 
-import type { Cents, FplRegion, HouseholdMember, PlanYear } from "./types.js";
+import type { Cents, FplRegion, HouseholdMember, PlanYear } from "./types";
 
 export interface BenchmarkRequest {
   readonly planYear: PlanYear;

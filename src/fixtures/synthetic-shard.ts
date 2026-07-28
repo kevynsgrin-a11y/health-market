@@ -13,7 +13,7 @@
  * Real data comes from `npm run etl`, run somewhere with access to CMS.
  */
 
-import type { AgeRateTable, BenchmarkShard, CountyBenchmark } from "../data/shard.js";
+import type { AgeRateTable, BenchmarkShard, CountyBenchmark } from "../data/shard";
 
 export const SYNTHETIC_SOURCE = "SYNTHETIC-FIXTURE — NOT REAL CMS DATA";
 

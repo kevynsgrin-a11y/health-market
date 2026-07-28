@@ -11,9 +11,9 @@
  * posture.
  */
 
-import { applicablePercentage, applyRate } from "./applicable-percentage.js";
-import { computeFpl } from "./fpl.js";
-import { selectRatedMembers } from "./rating.js";
+import { applicablePercentage, applyRate } from "./applicable-percentage";
+import { computeFpl } from "./fpl";
+import { selectRatedMembers } from "./rating";
 import type {
   Cents,
   Household,
@@ -21,7 +21,7 @@ import type {
   PlanYearParameters,
   PtcResult,
   WorkingStep,
-} from "./types.js";
+} from "./types";
 
 const CITE_36B = "IRC §36B(b)(2)";
 const CITE_ROUNDING = "26 CFR 1.36B-3(g)";

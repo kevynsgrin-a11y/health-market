@@ -8,18 +8,38 @@
     "node": ">=22"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.json",
-    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "engine:build": "tsc -p tsconfig.engine.json",
+    "engine:typecheck": "tsc -p tsconfig.engine.json --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
     "etl": "tsx src/etl/run.ts",
-    "dev": "tsx src/dev-server.ts"
+    "etl:verify": "tsx src/etl/verify.ts",
+    "dev:engine": "tsx src/dev-server.ts"
   },
   "devDependencies": {
+    "@tailwindcss/postcss": "^4.3.3",
     "@types/node": "^22.10.2",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "postcss": "^8.5.23",
+    "tailwindcss": "^4.3.3",
     "tsx": "^4.19.2",
     "typescript": "^5.7.2",
     "vitest": "^2.1.8"
   },
-  "homepage": "https://subsidydropoff.com"
+  "dependencies": {
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "lucide-react": "^1.27.0",
+    "motion": "^12.42.2",
+    "next": "^16.2.12",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "recharts": "^3.10.1",
+    "tailwind-merge": "^3.6.0"
+  }
 }

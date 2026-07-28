@@ -14,8 +14,8 @@
  * @see https://www.cms.gov/marketplace/resources/data/public-use-files
  */
 
-import { selectRatedMembers } from "../core/rating.js";
-import type { Cents, HouseholdMember } from "../core/types.js";
+import { selectRatedMembers } from "../core/rating";
+import type { Cents, HouseholdMember } from "../core/types";
 
 export type MetalLevel =
   | "Bronze"

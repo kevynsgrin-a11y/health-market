@@ -5,13 +5,13 @@
  * unit-testable without network access. `run.ts` is the thin I/O wrapper.
  */
 
-import type { BenchmarkShard, CountyBenchmark } from "../data/shard.js";
-import { parseMoneyToCents, parseRatePufAge } from "./csv.js";
+import type { BenchmarkShard, CountyBenchmark } from "../data/shard";
+import { parseMoneyToCents, parseRatePufAge } from "./csv";
 import {
   deriveSlcsp,
   type MetalLevel,
   type NormalisedPlanRate,
-} from "./slcsp.js";
+} from "./slcsp";
 
 /** Rate PUF columns we depend on. */
 export const RATE_PUF_COLUMNS = [
