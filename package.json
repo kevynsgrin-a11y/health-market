@@ -12,6 +12,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
+    "typecheck": "tsc --noEmit",
     "engine:build": "tsc -p tsconfig.engine.json",
     "engine:typecheck": "tsc -p tsconfig.engine.json --noEmit",
     "test": "vitest run",
