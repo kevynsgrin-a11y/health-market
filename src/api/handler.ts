@@ -62,6 +62,14 @@ export class RequestValidationError extends Error {
 const MAX_HOUSEHOLD = 20;
 const MAX_INCOME = 100_000_000;
 
+/**
+ * A benchmark shard older than this is treated as stale rather than trusted.
+ * The refresh cron runs weekly (7 days); this allows for two missed runs
+ * before refusing to serve the number, rather than serving an arbitrarily
+ * old snapshot with full confidence forever.
+ */
+const STALE_AFTER_DAYS = 21;
+
 export function validate(input: unknown): EstimateRequest {
   const problems: ValidationProblem[] = [];
   const raw = (input ?? {}) as Record<string, unknown>;
@@ -216,6 +224,15 @@ export async function estimate(
     };
   }
 
+  const ageDays = (Date.now() - new Date(benchmark.sourcePublished).getTime()) / 86_400_000;
+  if (ageDays > STALE_AFTER_DAYS) {
+    throw new UnverifiedDataError(
+      `Benchmark data for this region was last built ${benchmark.sourcePublished} ` +
+        `(${Math.floor(ageDays)} days ago), exceeding the ${STALE_AFTER_DAYS}-day ` +
+        `staleness threshold. The weekly refresh pipeline may be broken — see /api/health.`,
+    );
+  }
+
   const household: Household = {
     size: request.householdSize,
     members,
@@ -290,8 +307,31 @@ export async function handleRequest(
   const url = new URL(request.url);
 
   if (url.pathname === "/api/health") {
+    // Report freshness for the most recent supported plan year with data,
+    // not just the first configured one — a currently-served ZIP could sit
+    // on an older plan year while the newest is still unpublished.
+    let freshness: { generated: string } | null = null;
+    for (const planYear of SUPPORTED_PLAN_YEARS) {
+      const found = await provider.getFreshness?.(planYear);
+      if (found) {
+        freshness = found;
+        break;
+      }
+    }
+    const ageDays = freshness
+      ? (Date.now() - new Date(freshness.generated).getTime()) / 86_400_000
+      : null;
     return json(
-      { ok: true, supportedPlanYears: SUPPORTED_PLAN_YEARS, provider: provider.name },
+      {
+        ok: true,
+        supportedPlanYears: SUPPORTED_PLAN_YEARS,
+        provider: provider.name,
+        dataGenerated: freshness?.generated ?? null,
+        dataAgeDays: ageDays === null ? null : Math.floor(ageDays),
+        // true whenever there is no dataset to report on at all, matching
+        // estimate()'s STALE_AFTER_DAYS threshold when there is one.
+        dataStale: ageDays === null ? true : ageDays > STALE_AFTER_DAYS,
+      },
       200,
     );
   }

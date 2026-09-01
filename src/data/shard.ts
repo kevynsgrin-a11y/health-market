@@ -20,6 +20,7 @@
  */
 
 import {
+  type BenchmarkFreshness,
   type BenchmarkProvider,
   type BenchmarkRequest,
   type BenchmarkResult,
@@ -109,9 +110,25 @@ export function validateShard(shard: BenchmarkShard): string[] {
   return problems;
 }
 
+/** The per-plan-year manifest written alongside shards; see src/etl/run.ts. */
+export interface ShardIndex {
+  readonly planYear: PlanYear;
+  readonly generated: string;
+  readonly shardCount: number;
+  readonly countiesBuilt: number;
+  readonly countiesSkipped: number;
+  readonly prefixes: readonly string[];
+}
+
 export interface ShardLoader {
   /** Return the shard for a ZIP's 3-digit prefix, or null if not built. */
   load(planYear: PlanYear, zip3: string): Promise<BenchmarkShard | null>;
+  /**
+   * Return the plan year's index.json manifest, or null if no dataset has
+   * been built for that plan year at all. Optional: not every loader (e.g.
+   * MemoryShardLoader in tests) has a manifest to read.
+   */
+  loadIndex?(planYear: PlanYear): Promise<ShardIndex | null>;
 }
 
 /** Region a state falls in for poverty-guideline purposes. */
@@ -134,6 +151,11 @@ export class StaticBenchmarkProvider implements BenchmarkProvider {
   readonly name = "static-shard";
 
   constructor(private readonly loader: ShardLoader) {}
+
+  async getFreshness(planYear: PlanYear): Promise<BenchmarkFreshness | null> {
+    const index = await this.loader.loadIndex?.(planYear);
+    return index ? { generated: index.generated } : null;
+  }
 
   async getBenchmark(request: BenchmarkRequest): Promise<BenchmarkResult> {
     const zip = request.zip.trim();
@@ -268,6 +290,7 @@ export class StaticBenchmarkProvider implements BenchmarkProvider {
 /** An in-memory loader, used by tests and by the dev server. */
 export class MemoryShardLoader implements ShardLoader {
   private readonly shards = new Map<string, BenchmarkShard>();
+  private readonly indexes = new Map<PlanYear, ShardIndex>();
 
   add(zip3: string, shard: BenchmarkShard): this {
     const problems = validateShard(shard);
@@ -280,7 +303,17 @@ export class MemoryShardLoader implements ShardLoader {
     return this;
   }
 
+  /** Set the index.json manifest a test wants loadIndex() to return. */
+  setIndex(planYear: PlanYear, index: ShardIndex): this {
+    this.indexes.set(planYear, index);
+    return this;
+  }
+
   async load(planYear: PlanYear, zip3: string): Promise<BenchmarkShard | null> {
     return this.shards.get(`${planYear}/${zip3}`) ?? null;
+  }
+
+  async loadIndex(planYear: PlanYear): Promise<ShardIndex | null> {
+    return this.indexes.get(planYear) ?? null;
   }
 }

@@ -76,7 +76,13 @@ export function syntheticShard(planYear: number): BenchmarkShard {
     planYear,
     generated: "2026-07-27T00:00:00.000Z",
     sourceFile: SYNTHETIC_SOURCE,
-    sourcePublished: "1970-01-01",
+    // Deliberately "yesterday" rather than a fixed date: this fixture backs
+    // both the API's staleness gate tests and unrelated tests that just need
+    // a working shard, and a fixed date would eventually go stale on its own
+    // and start failing tests that have nothing to do with staleness. The
+    // SYNTHETIC sourceFile above is what actually flags this as fake data —
+    // this date only needs to be recent, not meaningful.
+    sourcePublished: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
     zipToCounties: {
       // Single-county ZIP, federally-facilitated state.
       "77002": ["48201"],

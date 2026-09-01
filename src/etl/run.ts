@@ -66,12 +66,41 @@ async function main(): Promise<void> {
   console.log(`ETL for plan year ${args.planYear} -> ${args.outDir}\n`);
 
   console.log("1/5 Loading source files");
-  const [attributesCsv, ratesCsv, landscapeCsv, zipCsv] = await Promise.all([
-    load("planAttributesPuf", args),
-    load("ratePuf", args),
-    load("qhpLandscapeIndividualMedical", args),
-    load("slcspCountyZip", args),
-  ]);
+  const sourceKeys = [
+    "planAttributesPuf",
+    "ratePuf",
+    "qhpLandscapeIndividualMedical",
+    "slcspCountyZip",
+  ] as const satisfies readonly DatasetKey[];
+  const results = await Promise.allSettled(sourceKeys.map((key) => load(key, args)));
+
+  const failed: DatasetKey[] = [];
+  const loadedByKey = {} as Record<DatasetKey, string>;
+  for (const [i, key] of sourceKeys.entries()) {
+    const result = results[i];
+    if (!result) continue; // unreachable: results has one entry per sourceKeys entry
+    if (result.status === "rejected") {
+      failed.push(key);
+      console.error(`  FAILED to load ${key}: ${String(result.reason)}`);
+    } else {
+      loadedByKey[key] = result.value;
+    }
+  }
+
+  if (failed.length > 0) {
+    throw new Error(
+      `ETL aborted: failed to load ${failed.join(", ")}. The other ` +
+        `${sourceKeys.length - failed.length} source(s) loaded fine — this is a ` +
+        `problem with the failed dataset(s) specifically (renamed/retired Socrata ID, ` +
+        `moved PUF path, etc.), not a general network outage. Check each failed ` +
+        `dataset's landingPage in src/etl/sources.ts.`,
+    );
+  }
+
+  const attributesCsv = loadedByKey.planAttributesPuf;
+  const ratesCsv = loadedByKey.ratePuf;
+  const landscapeCsv = loadedByKey.qhpLandscapeIndividualMedical;
+  const zipCsv = loadedByKey.slcspCountyZip;
 
   console.log("2/5 Parsing");
   const attributes = indexPlanAttributes(
@@ -165,6 +194,7 @@ async function main(): Promise<void> {
   await mkdir(dir, { recursive: true });
 
   let failures = 0;
+  const writtenPrefixes: string[] = [];
   for (const [prefix, shard] of outcome.shards) {
     const problems = validateShard(shard);
     if (problems.length > 0) {
@@ -172,6 +202,7 @@ async function main(): Promise<void> {
       console.error(`  FAILED ${prefix}: ${problems.slice(0, 3).join("; ")}`);
       continue;
     }
+    writtenPrefixes.push(prefix);
     await writeFile(join(dir, `${prefix}.json`), JSON.stringify(shard));
   }
 
@@ -180,11 +211,12 @@ async function main(): Promise<void> {
     JSON.stringify({
       planYear: args.planYear,
       generated: new Date().toISOString(),
-      shardCount: outcome.shards.size,
+      shardCount: writtenPrefixes.length,
+      shardsFailedValidation: failures,
       countiesBuilt: outcome.countiesBuilt,
       countiesSkipped: outcome.countiesSkipped,
       warnings: outcome.warnings,
-      prefixes: [...outcome.shards.keys()].sort(),
+      prefixes: writtenPrefixes.sort(),
     }, null, 2),
   );
 
@@ -193,7 +225,7 @@ async function main(): Promise<void> {
     process.exitCode = 1;
     return;
   }
-  console.log(`\nWrote ${outcome.shards.size} shards to ${dir}`);
+  console.log(`\nWrote ${writtenPrefixes.length} shards to ${dir}`);
 }
 
 main().catch((error: unknown) => {
