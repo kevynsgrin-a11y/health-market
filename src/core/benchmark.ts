@@ -73,9 +73,21 @@ export interface BenchmarkUnavailable {
 
 export type BenchmarkResult = BenchmarkQuote | BenchmarkUnavailable;
 
+export interface BenchmarkFreshness {
+  /** ISO timestamp the currently-loaded dataset for this plan year was built. */
+  readonly generated: string;
+}
+
 export interface BenchmarkProvider {
   readonly name: string;
   getBenchmark(request: BenchmarkRequest): Promise<BenchmarkResult>;
+  /**
+   * When was the dataset for this plan year last (re)built? Optional because
+   * not every provider has a meaningful answer (e.g. NullBenchmarkProvider).
+   * Used to detect a weekly-refresh pipeline that has silently stopped
+   * running, distinct from a dataset that was never loaded at all.
+   */
+  getFreshness?(planYear: PlanYear): Promise<BenchmarkFreshness | null>;
 }
 
 export function isQuote(result: BenchmarkResult): result is BenchmarkQuote {

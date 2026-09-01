@@ -10,7 +10,7 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import type { PlanYear } from "../core/types";
-import { type BenchmarkShard, type ShardLoader, validateShard } from "./shard";
+import { type BenchmarkShard, type ShardIndex, type ShardLoader, validateShard } from "./shard";
 
 function assertValid(shard: BenchmarkShard, key: string): BenchmarkShard {
   const problems = validateShard(shard);
@@ -44,6 +44,16 @@ export class FileShardLoader implements ShardLoader {
         this.cache.set(key, null);
         return null;
       }
+      throw error;
+    }
+  }
+
+  async loadIndex(planYear: PlanYear): Promise<ShardIndex | null> {
+    try {
+      const raw = await readFile(join(this.baseDir, String(planYear), "index.json"), "utf8");
+      return JSON.parse(raw) as ShardIndex;
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") return null;
       throw error;
     }
   }
@@ -81,5 +91,16 @@ export class AssetShardLoader implements ShardLoader {
     const shard = assertValid((await response.json()) as BenchmarkShard, key);
     this.cache.set(key, shard);
     return shard;
+  }
+
+  async loadIndex(planYear: PlanYear): Promise<ShardIndex | null> {
+    const response = await this.fetcher.fetch(
+      new Request(`https://assets.local${this.basePath}/${planYear}/index.json`),
+    );
+    if (response.status === 404) return null;
+    if (!response.ok) {
+      throw new Error(`index.json fetch for plan year ${planYear} failed: HTTP ${response.status}`);
+    }
+    return (await response.json()) as ShardIndex;
   }
 }

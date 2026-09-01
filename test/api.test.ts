@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { DISCLAIMER, estimate, handleRequest, validate } from "../src/api/handler.js";
 import { NullBenchmarkProvider } from "../src/core/benchmark.js";
+import { UnverifiedDataError } from "../src/core/plan-years.js";
 import {
   MemoryShardLoader,
   StaticBenchmarkProvider,
@@ -239,6 +240,40 @@ describe("estimate", () => {
   });
 });
 
+describe("staleness gate", () => {
+  function providerWithSourcePublished(sourcePublished: string): StaticBenchmarkProvider {
+    const loader = new MemoryShardLoader();
+    loader.add("770", { ...syntheticShard(2026), sourcePublished });
+    return new StaticBenchmarkProvider(loader);
+  }
+
+  it("refuses a shard published more than 21 days ago rather than serving it silently", async () => {
+    const stale = providerWithSourcePublished("2020-01-01");
+    await expect(estimate(validate(base), stale)).rejects.toThrow(UnverifiedDataError);
+    await expect(estimate(validate(base), stale)).rejects.toThrow(/staleness threshold/);
+  });
+
+  it("serves a shard published within the last 21 days", async () => {
+    const recent = new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    const response = await estimate(validate(base), providerWithSourcePublished(recent));
+    expect(response.ok).toBe(true);
+  });
+
+  it("surfaces the staleness rejection as a 503 through the HTTP adapter, not a 500", async () => {
+    const stale = providerWithSourcePublished("2020-01-01");
+    const response = await handleRequest(
+      new Request("https://example.test/api/estimate", {
+        method: "POST",
+        body: JSON.stringify(base),
+      }),
+      stale,
+    );
+    expect(response.status).toBe(503);
+    const body = await response.json();
+    expect(body.error).toBe("data_unverified");
+  });
+});
+
 describe("HTTP adapter", () => {
   const call = (path: string, init?: RequestInit): Promise<Response> =>
     handleRequest(new Request(`https://example.test${path}`, init), provider());
@@ -301,5 +336,62 @@ describe("HTTP adapter", () => {
     expect(response.headers.get("cache-control")).toBe("no-store");
     expect(response.headers.get("x-content-type-options")).toBe("nosniff");
     expect(response.headers.get("referrer-policy")).toBe("no-referrer");
+  });
+});
+
+describe("health check freshness", () => {
+  it("reports dataStale=true and no timestamp when no dataset has been built at all", async () => {
+    const response = await handleRequest(
+      new Request("https://example.test/api/health"),
+      provider(), // built by the top-level provider() helper, which never calls setIndex()
+    );
+    const body = await response.json();
+    expect(body.dataGenerated).toBeNull();
+    expect(body.dataAgeDays).toBeNull();
+    expect(body.dataStale).toBe(true);
+  });
+
+  it("reports dataStale=false with an age in days for a freshly-built dataset", async () => {
+    const loader = new MemoryShardLoader();
+    loader.add("770", syntheticShard(2026));
+    const generated = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString();
+    loader.setIndex(2026, {
+      planYear: 2026,
+      generated,
+      shardCount: 1,
+      countiesBuilt: 3,
+      countiesSkipped: 0,
+      prefixes: ["770"],
+    });
+
+    const response = await handleRequest(
+      new Request("https://example.test/api/health"),
+      new StaticBenchmarkProvider(loader),
+    );
+    const body = await response.json();
+    expect(body.dataGenerated).toBe(generated);
+    expect(body.dataAgeDays).toBe(2);
+    expect(body.dataStale).toBe(false);
+  });
+
+  it("reports dataStale=true once the built dataset exceeds the staleness threshold", async () => {
+    const loader = new MemoryShardLoader();
+    loader.add("770", syntheticShard(2026));
+    loader.setIndex(2026, {
+      planYear: 2026,
+      generated: "2020-01-01T00:00:00.000Z",
+      shardCount: 1,
+      countiesBuilt: 3,
+      countiesSkipped: 0,
+      prefixes: ["770"],
+    });
+
+    const response = await handleRequest(
+      new Request("https://example.test/api/health"),
+      new StaticBenchmarkProvider(loader),
+    );
+    const body = await response.json();
+    expect(body.dataStale).toBe(true);
+    expect(body.dataAgeDays).toBeGreaterThan(21);
   });
 });
