@@ -12,6 +12,10 @@
 <meta property="og:url" content="https://subsidydropoff.com/">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M2 11h13v13h6v5H2z' fill='%230e7c7b'/%3E%3C/svg%3E">
 <link rel="stylesheet" href="/styles.css">
+<!-- GA4 aggregate traffic. The bootstrap is the same-origin /ga4.js because the
+     CSP in public/_headers forbids inline script. -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-J0DNS1H8NK"></script>
+<script src="/ga4.js"></script>
 </head>
 <body>
 <div class="wrap">
@@ -84,8 +88,14 @@
     state's Marketplace.
   </p>
   <p>
-    We collect nothing. No account, no email, no analytics on your inputs. Your income
-    figure is used to compute a number and then discarded.
+    No account, no email, no analytics on your inputs. Your income figure is used to
+    compute a number and then discarded. We do measure aggregate traffic &mdash; pages
+    viewed, approximate location and device &mdash; with Google Analytics 4, which sets
+    cookies (<code>_ga</code>, <code>_ga_*</code>); see
+    <a href="https://policies.google.com/privacy" rel="noopener">Google's privacy policy</a>,
+    or opt out with <a href="https://tools.google.com/dlpage/gaoptout" rel="noopener">Google's
+    browser add-on</a>. Cloudflare Web Analytics also counts visits in aggregate, without
+    cookies.
   </p>
   <p id="prov"></p>
 </footer>
