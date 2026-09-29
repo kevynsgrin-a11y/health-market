@@ -111,7 +111,7 @@ async function main(): Promise<void> {
     attributes,
     args.planYear,
   );
-  const landscape = parseCsvTable(landscapeCsv, ["FIPS County Code", "Plan ID"]).rows;
+  const landscape = parseCsvTable(landscapeCsv, ["FIPS County Code", "Plan ID (Standard Component)"]).rows;
   const zipRows = parseCsvTable(zipCsv, []).rows;
   console.log(
     `  ${attributes.size} plans, ${rates.size} plan/rating-area rate tables, ` +
@@ -131,7 +131,7 @@ async function main(): Promise<void> {
 
   for (const row of landscape) {
     const fips = (row["FIPS County Code"] ?? "").trim().padStart(5, "0");
-    const planId = (row["Plan ID"] ?? "").trim();
+    const planId = (row["Plan ID (Standard Component)"] ?? row["Plan ID"] ?? "").trim();
     if (!fips || !planId) continue;
 
     const candidates = ratesByPlan.get(planId);
@@ -168,8 +168,8 @@ async function main(): Promise<void> {
 
   const zipToCounties: Record<string, string[]> = {};
   for (const row of zipRows) {
-    const zip = (row["zipcode"] ?? row["ZIP Code"] ?? row["zip"] ?? "").trim().padStart(5, "0");
-    const fips = (row["countycode"] ?? row["FIPS"] ?? row["county"] ?? "").trim().padStart(5, "0");
+    const zip = (row["zipcode"] ?? row["ZIP Code"] ?? row["Zip Code"] ?? row["zip"] ?? "").trim().padStart(5, "0");
+    const fips = (row["countycode"] ?? row["FIPS"] ?? row["fips"] ?? row["county"] ?? "").trim().padStart(5, "0");
     if (!/^\d{5}$/.test(zip) || !/^\d{5}$/.test(fips)) continue;
     (zipToCounties[zip] ??= []).push(fips);
   }

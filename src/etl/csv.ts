@@ -92,8 +92,22 @@ export interface CsvTable {
  */
 export function parseCsvTable(input: string, requiredColumns: readonly string[] = []): CsvTable {
   const raw = parseCsv(input);
-  const headerRow = raw[0];
-  if (!headerRow) throw new CsvError("CSV input is empty.");
+  if (raw.length === 0) throw new CsvError("CSV input is empty.");
+
+  // DKAN-era CMS exports can carry a preamble block ("N displayed records",
+  // column index notes) ahead of the real header. When required columns are
+  // known, scan the first rows for the one that has them all; a preamble
+  // row never will.
+  let headerRowIndex = 0;
+  if (requiredColumns.length > 0) {
+    const hasAll = (cells: readonly string[]) =>
+      requiredColumns.every((c) => cells.some((h) => h.trim() === c));
+    while (headerRowIndex < raw.length && !hasAll(raw[headerRowIndex])) {
+      headerRowIndex += 1;
+    }
+    if (headerRowIndex >= raw.length) headerRowIndex = 0; // let the required-column error below speak
+  }
+  const headerRow = raw[headerRowIndex];
 
   const header = headerRow.map((h) => h.trim());
   const missing = requiredColumns.filter((c) => !header.includes(c));
@@ -105,7 +119,7 @@ export function parseCsvTable(input: string, requiredColumns: readonly string[] 
     );
   }
 
-  const rows = raw.slice(1)
+  const rows = raw.slice(headerRowIndex + 1)
     .filter((r) => r.length > 1 || (r[0] ?? "").trim() !== "")
     .map((r) => {
       const record: Record<string, string> = {};
