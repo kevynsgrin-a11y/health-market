@@ -2,11 +2,13 @@
 
 ## Status
 
-The deploy pipeline is complete and committed. It has **not** been executed, because
-the environment it was authored in has no Cloudflare credentials and its egress policy
-denies `api.cloudflare.com` outright (`connect_rejected: gateway answered 403 to
-CONNECT`). Two secrets are the only thing standing between the current state and a
-live site.
+Run 36438384365 on 2026-09-28 failed on `main` for two separate reasons: the ETL
+checked retired Socrata routes and received HTTP 404, then Wrangler received Cloudflare
+authentication error 10000. The CMS source repair and PY2026 shards had already landed
+on the default branch in PR #12, but `main` was created from an earlier commit and did
+not include them. This change ports that existing repair to `main` and updates the
+workflow. It cannot verify or change the Cloudflare secrets; deployment remains
+owner-gated until the token and account ID are checked.
 
 ## One-time setup
 
@@ -16,8 +18,8 @@ Cloudflare dashboard → **My Profile → API Tokens → Create Token → Custom
 
 | Setting | Value |
 |---|---|
-| Permissions | `Account` → `Cloudflare Pages` → **Edit** |
-| Account Resources | Include → your account |
+| Permissions | `Account` → `Cloudflare Pages` → **Write** (shown as **Edit** in some dashboard views) |
+| Account Resources | Include → the account that owns `subsidy-dropoff` |
 
 Copy the token. It is shown once.
 
@@ -39,8 +41,16 @@ GitHub → Actions → "Deploy to Cloudflare Pages" → Run workflow
 ```
 
 The workflow creates the Pages project (`subsidy-dropoff`) on first run. It will
-typecheck, run the 117 tests, pull the CMS public use files, derive benchmark shards,
+typecheck, run the test suite, pull the CMS public use files, derive benchmark shards,
 refuse to proceed if synthetic fixture data is present, and deploy.
+
+### Existing code 10000 failure
+
+The September 28 run reached the Pages deploy step and received Cloudflare error
+10000. Check that `CLOUDFLARE_API_TOKEN` is active and has Pages write access on the
+account identified by `CLOUDFLARE_ACCOUNT_ID`, and that this is the account containing
+the `subsidy-dropoff` Pages project. Update those repository secrets through GitHub
+Settings if needed; no token value belongs in an issue, pull request, or source file.
 
 ### 4. Attach the domain
 
@@ -63,13 +73,21 @@ Running the ETL in the pipeline means:
   silently drift from source.
 - The weekly `schedule` trigger picks up CMS's in-year revisions without anyone
   remembering to do it.
-- **When CMS publishes plan year 2027 (expect around October 2026), the entire refresh
-  procedure is: run the workflow with `planYear: 2027`.** Nothing else changes.
+- The ETL and workflow currently accept plan year 2026 only. When CMS publishes
+  PY2027, verify its catalog downloads and schemas, then update `src/etl/sources.ts`,
+  the ETL supported year, and the workflow's plan-year choice together before building it.
 
-If the ETL fails — CMS outage, a plan year that isn't published yet — the deploy still
-proceeds and the API returns a typed `dataset-not-loaded` or `plan-year-not-published`.
-That is deliberate. The site degrades to an honest "we don't have this yet" rather than
-inventing a premium.
+If the ETL fails — for example, during a CMS outage — the deploy still proceeds and the
+API returns a typed `dataset-not-loaded` rather than inventing a premium. The repository
+includes the PY2026 shards as a fallback. CI reports zero shards when the selected
+plan-year directory has no shard files, even if its `index.json` exists. A failed CMS
+refresh creates an issue even when the checked-in shards let the deploy proceed; review
+the Actions summary and issue after each run.
+
+The SLCSP ZIP/county file is still published through the official CMS catalog, but its
+catalog record dates to 2014. This ETL uses only its ZIP and FIPS mapping columns; it
+does not use its historic premium values. Check the catalog record for a newer mapping
+before changing this source.
 
 ## Manual deploy
 

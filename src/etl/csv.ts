@@ -102,12 +102,15 @@ export function parseCsvTable(input: string, requiredColumns: readonly string[] 
   if (requiredColumns.length > 0) {
     const hasAll = (cells: readonly string[]) =>
       requiredColumns.every((c) => cells.some((h) => h.trim() === c));
-    while (headerRowIndex < raw.length && !hasAll(raw[headerRowIndex])) {
+    while (headerRowIndex < raw.length) {
+      const candidate = raw[headerRowIndex];
+      if (!candidate || hasAll(candidate)) break;
       headerRowIndex += 1;
     }
     if (headerRowIndex >= raw.length) headerRowIndex = 0; // let the required-column error below speak
   }
   const headerRow = raw[headerRowIndex];
+  if (!headerRow) throw new CsvError("CSV input is empty.");
 
   const header = headerRow.map((h) => h.trim());
   const missing = requiredColumns.filter((c) => !header.includes(c));

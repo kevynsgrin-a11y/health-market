@@ -37,10 +37,8 @@ export interface DatasetSource {
 /**
  * Datasets required to derive the benchmark for federally-facilitated states.
  *
- * NOTE ON PLAN YEAR AVAILABILITY: as of 2026-07-27 the most recent published
- * plan year is 2026. PY2027 files publish around October 2026, after state
- * regulators finalise rates (insurer filings were due 2026-07-15). Requesting
- * PY2027 before then is expected to 404 — that is correct behaviour, not a bug.
+ * The configured source URLs are pinned to PY2026. Verify the new CMS catalog
+ * entries and schemas before enabling a later plan year.
  *
  * 2026-09-28 re-point: CMS retired the Socrata /resource/ API surface on
  * healthdata.gov and data.healthcare.gov (the portals moved to DKAN). Both
@@ -101,6 +99,20 @@ export const DATASETS = {
 
 export type DatasetKey = keyof typeof DATASETS;
 
+/** These source URLs are all pinned to the current CMS plan-year release. */
+export const SUPPORTED_PLAN_YEAR = 2026;
+
+/** Prevent a different plan-year label from being paired with PY2026 files. */
+export function assertSupportedPlanYear(planYear: number): void {
+  if (planYear !== SUPPORTED_PLAN_YEAR) {
+    throw new Error(
+      `No ETL sources are configured for plan year ${planYear}; ` +
+        `the current source set is PY${SUPPORTED_PLAN_YEAR}. Update the ` +
+        `source URLs and supported year together before building another year.`,
+    );
+  }
+}
+
 /** Spot-verification endpoint. Requires a key that rotates every 60 days. */
 export const MARKETPLACE_API = {
   base: "https://marketplace.api.healthcare.gov/api/v1",
@@ -127,6 +139,17 @@ export class NetworkBlockedError extends Error {
   }
 }
 
+export class SourceHttpError extends Error {
+  constructor(
+    readonly sourceUrl: string,
+    readonly status: number,
+    readonly statusText: string,
+  ) {
+    super(`CMS source returned HTTP ${status} ${statusText}: ${sourceUrl}`);
+    this.name = "SourceHttpError";
+  }
+}
+
 export interface FetchOptions {
   readonly retries?: number;
   readonly timeoutMs?: number;
@@ -150,17 +173,24 @@ export async function fetchText(
         headers: { accept: "text/csv,application/json;q=0.9,*/*;q=0.8" },
       });
       if (!response.ok) {
-        throw new Error(`HTTP ${response.status} ${response.statusText}`);
+        const error = new SourceHttpError(url, response.status, response.statusText);
+        const retryable = response.status >= 500 || [408, 425, 429].includes(response.status);
+        if (!retryable) throw error;
+        lastError = error;
+      } else {
+        const buffer = new Uint8Array(await response.arrayBuffer());
+        // CMS publishes several PUFs as ZIP archives holding one CSV (and the
+        // PY2026 landscape as a ZIP holding one XLSX). The retired Socrata
+        // paths served plain CSV; unpack archives before parsing.
+        if (buffer[0] === 0x50 && buffer[1] === 0x4b) {
+          return unzipFirstTable(buffer, url);
+        }
+        return new TextDecoder("utf-8").decode(buffer);
       }
-      const buffer = new Uint8Array(await response.arrayBuffer());
-      // CMS publishes several PUFs as ZIP archives holding one CSV (and the
-      // PY2026 landscape as a ZIP holding one XLSX). The retired Socrata
-      // paths served plain CSV; unpack archives before parsing.
-      if (buffer[0] === 0x50 && buffer[1] === 0x4b) {
-        return unzipFirstTable(buffer, url);
-      }
-      return new TextDecoder("utf-8").decode(buffer);
     } catch (error) {
+      if (error instanceof SourceHttpError && error.status < 500 && ![408, 425, 429].includes(error.status)) {
+        throw error;
+      }
       lastError = error;
       if (attempt < retries) {
         await new Promise((r) => setTimeout(r, 2 ** (attempt + 1) * 1000));
@@ -169,6 +199,7 @@ export async function fetchText(
       clearTimeout(timer);
     }
   }
+  if (lastError instanceof SourceHttpError) throw lastError;
   throw new NetworkBlockedError(url, lastError);
 }
 
@@ -187,14 +218,19 @@ async function unzipFirstTable(buffer: Uint8Array, sourceUrl: string): Promise<s
   const names = Object.keys(files);
   const csvNames = names.filter((n) => n.toLowerCase().endsWith(".csv"));
   if (csvNames.length > 0) {
-    const largest = csvNames.sort((a, b) => files[b].length - files[a].length)[0];
-    return new TextDecoder("utf-8").decode(files[largest]);
+    const largest = csvNames.sort((a, b) => (files[b]?.length ?? 0) - (files[a]?.length ?? 0))[0];
+    const csvBytes = largest ? files[largest] : undefined;
+    if (csvBytes) return new TextDecoder("utf-8").decode(csvBytes);
   }
   const xlsxNames = names.filter((n) => /\.xlsx$/i.test(n));
   if (xlsxNames.length > 0) {
-    const largest = xlsxNames.sort((a, b) => files[b].length - files[a].length)[0];
+    const largest = xlsxNames.sort((a, b) => (files[b]?.length ?? 0) - (files[a]?.length ?? 0))[0];
+    const xlsxBytes = largest ? files[largest] : undefined;
+    if (!xlsxBytes) {
+      throw new Error(`ZIP from ${sourceUrl} listed an XLSX member that could not be read.`);
+    }
     const inner = await new Promise<Record<string, Uint8Array>>((resolve, reject) => {
-      unzip(files[largest], (err, data) => (err ? reject(err) : resolve(data)));
+      unzip(xlsxBytes, (err, data) => (err ? reject(err) : resolve(data)));
     });
     return xlsxToCsv(inner, sourceUrl);
   }
@@ -231,18 +267,20 @@ function xlsxToCsv(parts: Record<string, Uint8Array>, sourceUrl: string): string
   if (sheetNames.length === 0) {
     throw new Error(`XLSX from ${sourceUrl} has no worksheet part (found: ${Object.keys(parts).join(", ")})`);
   }
-  const sheetName = sheetNames.sort((a, b) => parts[b].length - parts[a].length)[0];
+  const sheetName = sheetNames.sort((a, b) => (parts[b]?.length ?? 0) - (parts[a]?.length ?? 0))[0];
+  const sheetBytes = sheetName ? parts[sheetName] : undefined;
+  if (!sheetBytes) throw new Error(`XLSX from ${sourceUrl} has no readable worksheet.`);
   const shared: string[] = [];
   const sharedXml = parts["xl/sharedStrings.xml"];
   if (sharedXml) {
     const xml = new TextDecoder("utf-8").decode(sharedXml);
     for (const si of xml.matchAll(/<si(?:\s[^>]*)?>([\s\S]*?)<\/si>/g)) {
       shared.push(
-        Array.from(si[1].matchAll(/<t(?:\s[^>]*)?>([\s\S]*?)<\/t>/g), (t) => decodeXml(t[1])).join(""),
+        Array.from(si[1]!.matchAll(/<t(?:\s[^>]*)?>([\s\S]*?)<\/t>/g), (t) => decodeXml(t[1] ?? "")).join(""),
       );
     }
   }
-  const sheet = new TextDecoder("utf-8").decode(parts[sheetName]);
+  const sheet = new TextDecoder("utf-8").decode(sheetBytes);
   const rows: string[] = [];
   // exec-loop rather than matchAll: the data sheet can be hundreds of MB and
   // matchAll would materialise every row substring at once.
@@ -252,24 +290,24 @@ function xlsxToCsv(parts: Record<string, Uint8Array>, sourceUrl: string): string
     const cells: string[] = [];
     const cellRe = /<c(\s[^>]*)?>([\s\S]*?)<\/c>/g;
     let cellMatch: RegExpExecArray | null;
-    while ((cellMatch = cellRe.exec(rowMatch[1])) !== null) {
+    while ((cellMatch = cellRe.exec(rowMatch[1] ?? "")) !== null) {
       const attrs = cellMatch[1] ?? "";
-      const body = cellMatch[2];
+      const body = cellMatch[2] ?? "";
       const refMatch = /r="([A-Z]+)\d+"/.exec(attrs);
-      const idx = refMatch ? colIndex(refMatch[1]) : cells.length;
+      const idx = refMatch ? colIndex(refMatch[1] ?? "") : cells.length;
       const type = /t="([^"]+)"/.exec(attrs)?.[1];
       let value = "";
       if (type === "s") {
         const v = /<v>([\s\S]*?)<\/v>/.exec(body);
-        value = v ? (shared[Number(v[1])] ?? "") : "";
+        value = v ? (shared[Number(v[1] ?? "")] ?? "") : "";
       } else if (type === "inlineStr") {
-        value = Array.from(body.matchAll(/<t(?:\s[^>]*)?>([\s\S]*?)<\/t>/g), (t) => decodeXml(t[1])).join("");
+        value = Array.from(body.matchAll(/<t(?:\s[^>]*)?>([\s\S]*?)<\/t>/g), (t) => decodeXml(t[1] ?? "")).join("");
       } else {
         const v = /<v>([\s\S]*?)<\/v>/.exec(body);
-        value = v ? decodeXml(v[1]) : "";
+        value = v ? decodeXml(v[1] ?? "") : "";
       }
       while (cells.length < idx) cells.push("");
-      cells[idx] = value ?? "";
+      cells[idx] = value;
     }
     rows.push(cells.map(csvQuote).join(","));
   }

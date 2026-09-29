@@ -18,6 +18,9 @@ on:
     inputs:
       planYear:
         description: "Plan year to build benchmark data for"
+        type: choice
+        options:
+          - "2026"
         required: false
         default: "2026"
   schedule:
@@ -54,6 +57,8 @@ jobs:
     needs: verify
     runs-on: ubuntu-latest
     environment: production
+    env:
+      PLAN_YEAR: ${{ github.event.inputs.planYear || '2026' }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -65,15 +70,21 @@ jobs:
       - name: Build benchmark data from CMS public use files
         id: etl
         continue-on-error: true
-        run: npm run etl -- --plan-year=${{ github.event.inputs.planYear || '2026' }} --out=public/data
+        run: npm run etl -- --plan-year="$PLAN_YEAR" --out=public/data
 
       - name: Report data status
         id: data-status
+        env:
+          ETL_OUTCOME: ${{ steps.etl.outcome }}
         run: |
-          if [ -d public/data ] && [ -n "$(find public/data -name '*.json' -print -quit)" ]; then
-            COUNT=$(find public/data -name '*.json' ! -name 'index.json' | wc -l)
-            echo "::notice::Built $COUNT benchmark shards from CMS."
-            echo "### Benchmark data: $COUNT shards built" >> "$GITHUB_STEP_SUMMARY"
+          DATA_DIR="public/data/$PLAN_YEAR"
+          COUNT=0
+          if [ -d "$DATA_DIR" ]; then
+            COUNT=$(find "$DATA_DIR" -maxdepth 1 -type f -name '*.json' ! -name 'index.json' | wc -l)
+          fi
+          if [ "$COUNT" -gt 0 ]; then
+            echo "::notice::Found $COUNT shard files for plan year $PLAN_YEAR (ETL outcome: $ETL_OUTCOME)."
+            echo "### Benchmark data: $COUNT shard files available (ETL: $ETL_OUTCOME)" >> "$GITHUB_STEP_SUMMARY"
             echo "shards_empty=false" >> "$GITHUB_OUTPUT"
           else
             echo "::warning::ETL produced no shards. Deploying anyway — the API will \
@@ -92,22 +103,22 @@ jobs:
           echo "No synthetic data in the artifact."
 
       - name: Deploy to Cloudflare Pages
-        uses: cloudflare/wrangler-action@v3
+        uses: cloudflare/wrangler-action@v4
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          wranglerVersion: "4.143.0"
           command: pages deploy public --project-name=subsidy-dropoff --branch=${{ github.ref_name }}
 
-      # Nothing upstream of this step pages anyone on its own — a failed run
-      # or an empty-shard deploy would otherwise only be visible to someone
-      # who happens to check Actions. This is what makes that visible.
-      - name: Alert on deploy failure or empty dataset
-        if: failure() || steps.data-status.outputs.shards_empty == 'true'
+      # Keep CMS refresh failures visible even when committed shards allow the
+      # deployment to proceed with the last known data.
+      - name: Alert on deploy failure, CMS refresh failure, or empty dataset
+        if: failure() || steps.etl.outcome == 'failure' || steps.data-status.outputs.shards_empty == 'true'
         run: |
           gh issue create \
             --repo "${{ github.repository }}" \
             --title "Deploy issue: run ${{ github.run_id }} (${{ github.event_name }} on ${{ github.ref_name }})" \
-            --body "Run failed or produced zero benchmark shards at $(date -u +%FT%TZ). See https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}." \
+            --body "Workflow failed, the CMS refresh failed, or no benchmark shards were available at $(date -u +%FT%TZ). See https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}." \
             || echo "::error::Could not create an alert issue — check that GITHUB_TOKEN has issues:write for this repo."
         env:
           GH_TOKEN: ${{ github.token }}

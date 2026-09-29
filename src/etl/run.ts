@@ -8,8 +8,8 @@
  * data.healthcare.gov and download.cms.gov. Shards are committed to the repo
  * and served as static assets, so production never talks to CMS at request time.
  *
- * PLAN YEAR AVAILABILITY: PY2027 files publish around October 2026. Running
- * this for 2027 before then is expected to fail at the fetch step.
+ * Source URLs are pinned to PY2026. A new plan year is rejected until its CMS
+ * source files and schemas have been verified and enabled in sources.ts.
  */
 
 import { mkdir, readFile, writeFile } from "node:fs/promises";
@@ -25,7 +25,15 @@ import {
   type CsvRow,
 } from "./build";
 import { parseCsvTable, parseMoneyToCents } from "./csv";
-import { DATASETS, fetchText, NetworkBlockedError, type DatasetKey } from "./sources";
+import {
+  assertSupportedPlanYear,
+  DATASETS,
+  fetchText,
+  NetworkBlockedError,
+  SUPPORTED_PLAN_YEAR,
+  type DatasetKey,
+} from "./sources";
+import { buildZipToCounties } from "./zip-crosswalk";
 import type { NormalisedPlanRate } from "./slcsp";
 
 interface Args {
@@ -38,10 +46,11 @@ function parseArgs(argv: readonly string[]): Args {
   const get = (name: string): string | undefined =>
     argv.find((a) => a.startsWith(`--${name}=`))?.split("=").slice(1).join("=");
 
-  const planYear = Number(get("plan-year") ?? new Date().getUTCFullYear());
+  const planYear = Number(get("plan-year") ?? SUPPORTED_PLAN_YEAR);
   if (!Number.isInteger(planYear)) {
     throw new Error(`--plan-year must be an integer; got ${get("plan-year")}`);
   }
+  assertSupportedPlanYear(planYear);
   return {
     planYear,
     outDir: get("out") ?? "public/data",
@@ -166,13 +175,7 @@ async function main(): Promise<void> {
     plans,
   }));
 
-  const zipToCounties: Record<string, string[]> = {};
-  for (const row of zipRows) {
-    const zip = (row["zipcode"] ?? row["ZIP Code"] ?? row["Zip Code"] ?? row["zip"] ?? "").trim().padStart(5, "0");
-    const fips = (row["countycode"] ?? row["FIPS"] ?? row["fips"] ?? row["county"] ?? "").trim().padStart(5, "0");
-    if (!/^\d{5}$/.test(zip) || !/^\d{5}$/.test(fips)) continue;
-    (zipToCounties[zip] ??= []).push(fips);
-  }
+  const zipToCounties = buildZipToCounties(zipRows);
   console.log(`  ${Object.keys(zipToCounties).length} ZIP codes in the crosswalk`);
 
   console.log("4/5 Deriving benchmarks");
